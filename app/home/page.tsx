@@ -8,6 +8,34 @@ import toast from "react-hot-toast";
 import { User2Icon } from "lucide-react";
 import Link from "next/link";
 
+// Helper function to fetch all paginated repos
+const fetchAllRepos = async (reposUrl: string, token?: any) => {
+  let allRepos: any[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  console.log("token is: ", token);
+  
+
+  while (hasMore) {
+    const response = await fetch(`${reposUrl}?per_page=100&page=${page}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      toast.error("Failed to fetch repositories");
+      return [];
+    }
+
+    const data = await response.json();
+    allRepos = allRepos.concat(data);
+    hasMore = data.length === 100;
+    page++;
+  }
+
+  return allRepos;
+};
+
 export default function Homepage() {
   const [isLoggedin, setisLoggedin] = useState<boolean>(false);
   const [userInfo, setuserInfo] = useState<any>({});
@@ -23,54 +51,54 @@ export default function Homepage() {
       toast.error("Error, please try again later!");
     }
   };
+
   useEffect(() => {
-    const fetchtoken = async () => {
-      const istoken = localStorage.getItem("token");
-      let userdata: any = localStorage.getItem("userInfo")!;
-      if (userdata === null) {
-        toast.error("login again!");
-        return;
-      }
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const access_token = localStorage.getItem("access_token");
+        const rawUserData = localStorage.getItem("userInfo");
 
-      userdata = await JSON.parse(userdata);
-      console.log("after user data is: ", userdata);
+        if (!rawUserData) {
+          toast.error("Login again!");
+          return;
+        }
 
-      const reposResponse: any = await fetch(userdata.user.repos_url);
-      const repos = await reposResponse.json();
+        let parsedUserData;
+        try {
+          parsedUserData = JSON.parse(rawUserData);
+        } catch (e) {
+          toast.error("Invalid user data. Please login again.");
+          return;
+        }
 
-      console.log("repos are: ", repos);
+        const allRepos = await fetchAllRepos(parsedUserData.user.repos_url, access_token);
 
-      if (!repos) {
-        toast.error("error fetching all repos, try again!");
-        return;
-      }
-
-      if (istoken) {
-        setuserInfo(userdata);
-        setUserRepos(repos);
-
+        setuserInfo(parsedUserData);
+        setUserRepos(allRepos);
         setisLoggedin(true);
-      } else {
-        setisLoggedin(false);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to fetch repositories");
       }
     };
 
-    fetchtoken();
-  }, [isLoggedin]);
+    fetchUserData();
+  }, []);
+
   return (
     <div>
+      {/* Navbar */}
       <nav className="w-full h-[5vh] bg-black text-white p-5 flex justify-center items-center">
         {isLoggedin && (
           <div className="flex justify-center items-center gap-x-3">
-            <div>
-              <Button
-                variant={"default"}
-                className="border cursor-pointer"
-                onClick={logout}
-              >
-                Logout
-              </Button>
-            </div>
+            <Button
+              variant={"default"}
+              className="border cursor-pointer"
+              onClick={logout}
+            >
+              Logout
+            </Button>
             <Button
               asChild
               className="flex justify-center items-center cursor-pointer"
@@ -82,9 +110,14 @@ export default function Homepage() {
           </div>
         )}
       </nav>
+
+      {/* Main */}
       <main className="p-6">
-        <h2 className="text-xl font-bold mb-4">Repositories {userRepos.length}</h2>
-        {userRepos.length === 0 ? (
+        <h2 className="text-xl font-bold mb-4">
+          Repositories ({Array.isArray(userRepos) ? userRepos.length : 0})
+        </h2>
+
+        {Array.isArray(userRepos) && userRepos.length === 0 ? (
           <p>No repositories found.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -36,7 +36,7 @@ router.post("/callback", async (req: Request, res: Response) => {
     
 
     const token = jwt.sign(
-      { githubId: id, username: login, avatar: avatar_url, email },
+      { githubId: id, username: login, access:access_token },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" }
     );
@@ -44,7 +44,7 @@ router.post("/callback", async (req: Request, res: Response) => {
     console.log("done");
     
 
-    res.status(201).json({ token, user: userRes.data });
+    res.status(201).json({ token,access_token, user: userRes.data });
   } catch (error) {
     return res.status(500).json({
       message: "error while github auth",

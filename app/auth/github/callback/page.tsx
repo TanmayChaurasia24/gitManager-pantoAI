@@ -20,6 +20,7 @@ export default function GitHubCallback() {
         const backendResponse: any = await axios.post('http://localhost:5000/auth/github/callback', { code });
         console.log("backend response is: ", backendResponse.data);
         localStorage.setItem('token', backendResponse.data.token);
+        localStorage.setItem('access_token', backendResponse.data.access_token);
         localStorage.setItem('userInfo', JSON.stringify(backendResponse.data))
         router.push("/home");
       } catch (err: any) {
