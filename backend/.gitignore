@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript build output (if you're using TS)
+dist/
+build/
+
+# Optional: Coverage output from test tools
+coverage/
+
+# Optional: Local dev files
+*.swp
+*.swo
+*.orig
+
+# Optional: PM2 logs
+pids/
+*.log
+
+# Optional: VS Code settings
+.vscode/
+
+# Optional: Docker artifacts
+docker-compose.override.yml
