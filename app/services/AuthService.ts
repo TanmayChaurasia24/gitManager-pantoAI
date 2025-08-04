@@ -12,6 +12,8 @@ export const handleLogout = () => {
   try {
     if(localStorage.getItem('token')) {
       localStorage.removeItem('token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('userInfo');
     }
     toast.success("logged out sucessfully!");
     return true;
