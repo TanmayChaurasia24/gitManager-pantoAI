@@ -1,9 +1,11 @@
 import express from "express";
-import githubauthrouter from "./auth/github"
+import githubauthrouter from "./routes/github"
 import cors from "cors"
 import dotenv from "dotenv"
+import { ConnectDB } from "./dbConnect";
 
 dotenv.config();
+ConnectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

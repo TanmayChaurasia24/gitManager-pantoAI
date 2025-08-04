@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { handleLogout } from "../services/AuthService";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { 
-  User2Icon, 
-  Star, 
-  GitFork, 
-  Users, 
-  Calendar, 
-  Globe, 
+import {
+  User2Icon,
+  Star,
+  GitFork,
+  Users,
+  Calendar,
+  Globe,
   Lock,
   Eye,
   AlertCircle,
@@ -20,10 +20,16 @@ import {
   BarChart3,
   Settings,
   CheckCircle,
-  XCircle
+  XCircle,
+  Cross,
+  Check,
+  CheckCircle2,
+  CrossIcon,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import axios from "axios";
 
 // Interface for repository metadata
 interface RepoMetadata {
@@ -67,7 +73,10 @@ const fetchAllRepos = async (reposUrl: string, token?: string) => {
 };
 
 // Fetch additional repository metadata
-const fetchRepoMetadata = async (repo: any, token?: string): Promise<RepoMetadata> => {
+const fetchRepoMetadata = async (
+  repo: any,
+  token?: string
+): Promise<RepoMetadata> => {
   const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
   const metadata: RepoMetadata = {
     contributors: 0,
@@ -76,10 +85,14 @@ const fetchRepoMetadata = async (repo: any, token?: string): Promise<RepoMetadat
 
   try {
     // Fetch contributors count
-    const contributorsResponse = await fetch(repo.contributors_url, { headers });
+    const contributorsResponse = await fetch(repo.contributors_url, {
+      headers,
+    });
     if (contributorsResponse.ok) {
       const contributors = await contributorsResponse.json();
-      metadata.contributors = Array.isArray(contributors) ? contributors.length : 0;
+      metadata.contributors = Array.isArray(contributors)
+        ? contributors.length
+        : 0;
     }
 
     // Fetch languages
@@ -90,7 +103,10 @@ const fetchRepoMetadata = async (repo: any, token?: string): Promise<RepoMetadat
     }
 
     // Fetch latest release
-    const releasesResponse = await fetch(repo.releases_url.replace('{/id}', ''), { headers });
+    const releasesResponse = await fetch(
+      repo.releases_url.replace("{/id}", ""),
+      { headers }
+    );
     if (releasesResponse.ok) {
       const releases = await releasesResponse.json();
       if (releases.length > 0) {
@@ -110,55 +126,38 @@ const fetchRepoMetadata = async (repo: any, token?: string): Promise<RepoMetadat
 // API calls for repository configuration
 const fetchRepoConfigs = async (): Promise<RepoConfig[]> => {
   try {
-    const response = await fetch('/api/repo-configs', {
+    const response = await fetch("/api/repo-configs", {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },
     });
-    
+
     if (response.ok) {
       return await response.json();
     }
   } catch (error) {
-    console.error('Error fetching repo configs:', error);
+    console.error("Error fetching repo configs:", error);
   }
   return [];
 };
 
-const updateRepoConfig = async (repoId: number, autoReview: boolean): Promise<boolean> => {
-  try {
-    const response = await fetch('/api/repo-configs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-      },
-      body: JSON.stringify({ repoId, autoReview }),
-    });
-    
-    return response.ok;
-  } catch (error) {
-    console.error('Error updating repo config:', error);
-    return false;
-  }
-};
 
 // Format date helper
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 };
 
 // Format bytes to readable size
 const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 };
 
 export default function Homepage() {
@@ -167,10 +166,16 @@ export default function Homepage() {
   const [userRepos, setUserRepos] = useState<any[]>([]);
   const [expandedRepos, setExpandedRepos] = useState<Set<number>>(new Set());
   const [showingStats, setShowingStats] = useState<Set<number>>(new Set());
-  const [repoMetadata, setRepoMetadata] = useState<{ [key: number]: RepoMetadata }>({});
-  const [loadingMetadata, setLoadingMetadata] = useState<Set<number>>(new Set());
-  const [repoConfigs, setRepoConfigs] = useState<{ [key: number]: boolean }>({});
-  const [updatingConfig, setUpdatingConfig] = useState<Set<number>>(new Set());
+  const [repoMetadata, setRepoMetadata] = useState<{
+    [key: number]: RepoMetadata;
+  }>({});
+  const [loadingMetadata, setLoadingMetadata] = useState<Set<number>>(
+    new Set()
+  );
+  const [repoConfigs, setRepoConfigs] = useState<{ [key: number]: boolean }>(
+    {}
+  );
+  const [arToggle, setArToggle] = useState(false);
   const router = useRouter();
 
   const logout = () => {
@@ -203,7 +208,7 @@ export default function Homepage() {
         // Fetch repository configurations
         const configs = await fetchRepoConfigs();
         const configMap: { [key: number]: boolean } = {};
-        configs.forEach(config => {
+        configs.forEach((config) => {
           configMap[config.id] = config.autoReview;
         });
 
@@ -226,19 +231,22 @@ export default function Homepage() {
       newSet.delete(repoId);
     } else {
       newSet.add(repoId);
-      
+
       // Fetch metadata if not already loaded
       if (!repoMetadata[repoId] && !loadingMetadata.has(repoId)) {
-        setLoadingMetadata(prev => new Set(prev).add(repoId));
-        const repo = userRepos.find(r => r.id === repoId);
+        setLoadingMetadata((prev) => new Set(prev).add(repoId));
+        const repo = userRepos.find((r) => r.id === repoId);
         const access_token = localStorage.getItem("access_token");
-        
+
         if (repo) {
-          const metadata = await fetchRepoMetadata(repo, access_token || undefined);
-          setRepoMetadata(prev => ({ ...prev, [repoId]: metadata }));
+          const metadata = await fetchRepoMetadata(
+            repo,
+            access_token || undefined
+          );
+          setRepoMetadata((prev) => ({ ...prev, [repoId]: metadata }));
         }
-        
-        setLoadingMetadata(prev => {
+
+        setLoadingMetadata((prev) => {
           const newSet = new Set(prev);
           newSet.delete(repoId);
           return newSet;
@@ -259,33 +267,34 @@ export default function Homepage() {
   };
 
   const toggleAutoReview = async (repoId: number) => {
-    if (updatingConfig.has(repoId)) return;
+    const userid = userInfo.user.id;
+    const istoggle = true;
 
-    setUpdatingConfig(prev => new Set(prev).add(repoId));
-    
-    const newAutoReviewStatus = !repoConfigs[repoId];
-    const success = await updateRepoConfig(repoId, newAutoReviewStatus);
-    
-    if (success) {
-      setRepoConfigs(prev => ({
-        ...prev,
-        [repoId]: newAutoReviewStatus
-      }));
-      toast.success(`Auto Review ${newAutoReviewStatus ? 'enabled' : 'disabled'} for repository`);
-    } else {
-      toast.error('Failed to update Auto Review setting');
-    }
-    
-    setUpdatingConfig(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(repoId);
-      return newSet;
+    console.log("info are: ", repoId, userid, istoggle);
+
+    const backendreponse = await axios.post("http://localhost:5000/auth/github/store/autoreview", {
+      repo_id: repoId,
+      user_id: userid,
+      autoReview: true
+    }, {
+      headers: {
+        "Content-Type": "application/json"
+      }      
     });
+
+    if (backendreponse.status !== 200) {
+      toast.error("try again later");
+      return;
+    }
+
+    console.log("backend response is: ", backendreponse);
+    toast.success("auto feature is on....")
+    
   };
 
   const getTopLanguage = (languages: { [key: string]: number }) => {
     if (!languages || Object.keys(languages).length === 0) return null;
-    return Object.entries(languages).sort(([,a], [,b]) => b - a)[0];
+    return Object.entries(languages).sort(([, a], [, b]) => b - a)[0];
   };
 
   return (
@@ -294,7 +303,11 @@ export default function Homepage() {
       <nav className="w-full h-[5vh] bg-black text-white p-5 flex justify-center items-center">
         {isLoggedin && (
           <div className="flex justify-center items-center gap-x-3">
-            <Button onClick={logout} variant="outline" className="text-white border-white hover:bg-white hover:text-black">
+            <Button
+              onClick={logout}
+              variant="outline"
+              className="text-white border-white hover:bg-white hover:text-black"
+            >
               Logout
             </Button>
             <div
@@ -321,7 +334,8 @@ export default function Homepage() {
           </h1>
           <p className="text-gray-600 flex items-center gap-2">
             <Code className="w-4 h-4" />
-            {userRepos.length} repositories found • Configure Auto Review settings
+            {userRepos.length} repositories found • Configure Auto Review
+            settings
           </p>
         </div>
 
@@ -351,7 +365,7 @@ export default function Homepage() {
                       )}
                     </div>
                   </div>
-                  
+
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                     {repo.description || "No description provided"}
                   </p>
@@ -360,30 +374,28 @@ export default function Homepage() {
                   <div className="flex items-center justify-between mb-3 p-2 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Settings className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">Auto Review</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Auto Review
+                      </span>
                     </div>
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={() => toggleAutoReview(repo.id)}
-                      disabled={updatingConfig.has(repo.id)}
-                      className={`${
-                        repoConfigs[repo.id] 
-                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                          : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                      className={`cursor-pointer px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-white transition-all duration-200 ${
+                        arToggle
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-red-500 hover:bg-red-600"
                       }`}
+                      onClick={() => toggleAutoReview(repo.id)}
                     >
-                      {updatingConfig.has(repo.id) ? (
-                        "..."
-                      ) : repoConfigs[repo.id] ? (
+                      {arToggle ? (
                         <>
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          ON
+                          <CheckCircle2 className="w-4 h-4 border border-white rounded-full" />
+                          <span>On</span>
                         </>
                       ) : (
                         <>
-                          <XCircle className="w-3 h-3 mr-1" />
-                          OFF
+                          <X className="w-4 h-4 border border-white rounded-full" />
+                          <span>Off</span>
                         </>
                       )}
                     </Button>
@@ -392,31 +404,43 @@ export default function Homepage() {
                   {/* Repository Stats */}
                   {showingStats.has(repo.id) && (
                     <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <h4 className="text-sm font-medium text-blue-900 mb-2">Repository Statistics</h4>
+                      <h4 className="text-sm font-medium text-blue-900 mb-2">
+                        Repository Statistics
+                      </h4>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <span className="text-blue-700">Stars:</span>
                           <div className="flex items-center gap-1 mt-1">
                             <Star className="w-3 h-3 text-yellow-500" />
-                            <span className="font-medium">{repo.stargazers_count}</span>
+                            <span className="font-medium">
+                              {repo.stargazers_count}
+                            </span>
                           </div>
                         </div>
                         <div>
                           <span className="text-blue-700">Default Branch:</span>
-                          <p className="font-medium mt-1">{repo.default_branch}</p>
+                          <p className="font-medium mt-1">
+                            {repo.default_branch}
+                          </p>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-blue-700">Auto Review Status:</span>
+                          <span className="text-blue-700">
+                            Auto Review Status:
+                          </span>
                           <div className="flex items-center gap-1 mt-1">
                             {repoConfigs[repo.id] ? (
                               <>
                                 <CheckCircle className="w-3 h-3 text-green-600" />
-                                <span className="font-medium text-green-700">Enabled</span>
+                                <span className="font-medium text-green-700">
+                                  Enabled
+                                </span>
                               </>
                             ) : (
                               <>
                                 <XCircle className="w-3 h-3 text-red-600" />
-                                <span className="font-medium text-red-700">Disabled</span>
+                                <span className="font-medium text-red-700">
+                                  Disabled
+                                </span>
                               </>
                             )}
                           </div>
@@ -445,7 +469,9 @@ export default function Homepage() {
                   {repo.language && (
                     <div className="flex items-center gap-2 mb-3">
                       <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <span className="text-sm text-gray-700">{repo.language}</span>
+                      <span className="text-sm text-gray-700">
+                        {repo.language}
+                      </span>
                     </div>
                   )}
 
@@ -491,13 +517,11 @@ export default function Homepage() {
                       className="flex-1"
                       disabled={loadingMetadata.has(repo.id)}
                     >
-                      {loadingMetadata.has(repo.id) ? (
-                        "Loading..."
-                      ) : expandedRepos.has(repo.id) ? (
-                        "Hide Details"
-                      ) : (
-                        "Show Details"
-                      )}
+                      {loadingMetadata.has(repo.id)
+                        ? "Loading..."
+                        : expandedRepos.has(repo.id)
+                        ? "Hide Details"
+                        : "Show Details"}
                     </Button>
                   </div>
                 </div>
@@ -508,9 +532,11 @@ export default function Homepage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       {/* Basic Info */}
                       <div className="col-span-2 mt-4">
-                        <h4 className="font-medium text-gray-900 mb-3">Repository Details</h4>
+                        <h4 className="font-medium text-gray-900 mb-3">
+                          Repository Details
+                        </h4>
                       </div>
-                      
+
                       <div>
                         <span className="text-gray-500">Visibility:</span>
                         <div className="flex items-center gap-1 mt-1">
@@ -530,27 +556,37 @@ export default function Homepage() {
 
                       <div>
                         <span className="text-gray-500">Size:</span>
-                        <p className="text-gray-700 mt-1">{formatBytes(repo.size * 1024)}</p>
+                        <p className="text-gray-700 mt-1">
+                          {formatBytes(repo.size * 1024)}
+                        </p>
                       </div>
 
                       <div>
                         <span className="text-gray-500">Created:</span>
-                        <p className="text-gray-700 mt-1">{formatDate(repo.created_at)}</p>
+                        <p className="text-gray-700 mt-1">
+                          {formatDate(repo.created_at)}
+                        </p>
                       </div>
 
                       <div>
                         <span className="text-gray-500">Updated:</span>
-                        <p className="text-gray-700 mt-1">{formatDate(repo.updated_at)}</p>
+                        <p className="text-gray-700 mt-1">
+                          {formatDate(repo.updated_at)}
+                        </p>
                       </div>
 
                       <div>
                         <span className="text-gray-500">Default Branch:</span>
-                        <p className="text-gray-700 mt-1">{repo.default_branch}</p>
+                        <p className="text-gray-700 mt-1">
+                          {repo.default_branch}
+                        </p>
                       </div>
 
                       <div>
                         <span className="text-gray-500">Open Issues:</span>
-                        <p className="text-gray-700 mt-1">{repo.open_issues_count}</p>
+                        <p className="text-gray-700 mt-1">
+                          {repo.open_issues_count}
+                        </p>
                       </div>
 
                       {/* Additional Metadata */}
@@ -560,16 +596,19 @@ export default function Homepage() {
                             <span className="text-gray-500">Contributors:</span>
                             <div className="flex items-center gap-1 mt-1">
                               <Users className="w-3 h-3 text-gray-500" />
-                              <span className="text-gray-700">{repoMetadata[repo.id].contributors}</span>
+                              <span className="text-gray-700">
+                                {repoMetadata[repo.id].contributors}
+                              </span>
                             </div>
                           </div>
 
-                          {Object.keys(repoMetadata[repo.id].languages).length > 0 && (
+                          {Object.keys(repoMetadata[repo.id].languages).length >
+                            0 && (
                             <div className="col-span-2">
                               <span className="text-gray-500">Languages:</span>
                               <div className="flex flex-wrap gap-2 mt-2">
                                 {Object.entries(repoMetadata[repo.id].languages)
-                                  .sort(([,a], [,b]) => b - a)
+                                  .sort(([, a], [, b]) => b - a)
                                   .slice(0, 5)
                                   .map(([lang, bytes]) => (
                                     <span
@@ -585,10 +624,15 @@ export default function Homepage() {
 
                           {repoMetadata[repo.id].latestRelease && (
                             <div className="col-span-2">
-                              <span className="text-gray-500">Latest Release:</span>
+                              <span className="text-gray-500">
+                                Latest Release:
+                              </span>
                               <p className="text-gray-700 mt-1">
-                                {repoMetadata[repo.id].latestRelease!.name} • {' '}
-                                {formatDate(repoMetadata[repo.id].latestRelease!.published_at)}
+                                {repoMetadata[repo.id].latestRelease!.name} •{" "}
+                                {formatDate(
+                                  repoMetadata[repo.id].latestRelease!
+                                    .published_at
+                                )}
                               </p>
                             </div>
                           )}
