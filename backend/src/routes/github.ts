@@ -12,7 +12,7 @@ router.post("/callback", async (req: Request, res: Response) => {
     const client_secret: string = process.env.GITHUB_CLIENT_SECRET!;
 
     console.log("code is: ", code);
-    console.log("code is: ", client_id);
+    console.log("code is: ", client_id); 
     console.log("code is: ", client_secret);
 
     const tokenRes: any = await axios.post(
