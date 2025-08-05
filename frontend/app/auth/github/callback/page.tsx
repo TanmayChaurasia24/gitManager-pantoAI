@@ -17,7 +17,7 @@ export default function GitHubCallback() {
       if (!code) return;
     
       try {
-        const backendResponse: any = await axios.post('https://gitmanager-pantoai.onrender.com/auth/github/callback', { code });
+        const backendResponse: any = await axios.post('http://localhost:5000/auth/github/callback', { code });
         console.log("backend response is: ", backendResponse.data);
         localStorage.setItem('token', backendResponse.data.token);
         localStorage.setItem('access_token', backendResponse.data.access_token);

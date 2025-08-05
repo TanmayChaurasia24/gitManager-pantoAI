@@ -21,12 +21,12 @@ services:
       - mongo
 
   frontend:
-    build: ./
+    build: ./frontend
     container_name: mern-frontend
     ports:
-      - "3000:80"
+      - "3000:3000"
     env_file:
-      - ./.env
+      - ./frontend/.env
     depends_on:
       - backend
 

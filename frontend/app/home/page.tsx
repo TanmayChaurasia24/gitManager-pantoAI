@@ -214,7 +214,7 @@ export default function Homepage() {
 
         // 👇 Check if there's a DB entry for the user
         const statusResponse: any = await axios.post(
-          "https://gitmanager-pantoai.onrender.com/auth/github/status/autoreview",
+          "http://localhost:5000/auth/github/status/autoreview",
           {
             user_id: userInfo.id,
           }
@@ -291,7 +291,7 @@ export default function Homepage() {
       if (isEnabled) {
         // Disable Auto Review
         const response: any = await axios.delete(
-          "https://gitmanager-pantoai.onrender.com/auth/github/delete/autoreview",
+          "http://localhost:5000/auth/github/delete/autoreview",
           // @ts-ignore
           { repo_id: repoId, user_id: userid }
         );
@@ -303,7 +303,7 @@ export default function Homepage() {
       } else {
         // Enable Auto Review
         const response = await axios.post(
-          "https://gitmanager-pantoai.onrender.com/auth/github/store/autoreview",
+          "http://localhost:5000/auth/github/store/autoreview",
           {
             repo_id: repoId,
             user_id: userid,
