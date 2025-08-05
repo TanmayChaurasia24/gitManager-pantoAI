@@ -30,6 +30,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
+import { flushAllTraces } from "next/dist/trace";
 
 // Interface for repository metadata
 interface RepoMetadata {
@@ -141,7 +142,6 @@ const fetchRepoConfigs = async (): Promise<RepoConfig[]> => {
   return [];
 };
 
-
 // Format date helper
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -187,9 +187,8 @@ export default function Homepage() {
       toast.error("Error, please try again later!");
     }
   };
-
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchAllData = async () => {
       try {
         const access_token = localStorage.getItem("access_token");
         const rawUserData = localStorage.getItem("userInfo");
@@ -200,29 +199,47 @@ export default function Homepage() {
         }
 
         const parsedUserData = JSON.parse(rawUserData);
+        setuserInfo(parsedUserData); // set userInfo first
+
         const allRepos = await fetchAllRepos(
           parsedUserData.user.repos_url,
           access_token
         );
 
-        // Fetch repository configurations
-        const configs = await fetchRepoConfigs();
+        const configs = await fetchRepoConfigs(); // fetch existing repo configs
         const configMap: { [key: number]: boolean } = {};
         configs.forEach((config) => {
           configMap[config.id] = config.autoReview;
         });
 
-        setuserInfo(parsedUserData);
+        // 👇 Check if there's a DB entry for the user
+        const statusResponse: any = await axios.post(
+          "http://localhost:5000/auth/github/status/autoreview",
+          {
+            user_id: userInfo.id,
+          }
+        );
+
+        console.log("AutoReview status response:", statusResponse.data);
+
+
+        if (statusResponse.status === 200 || statusResponse.status === 201) {
+          const list = statusResponse.data.list;
+          list.forEach((item: any) => {
+            configMap[item.repoId] = item.autoReview; // usually true
+          });
+        }
+
         setUserRepos(allRepos);
         setRepoConfigs(configMap);
         setisLoggedin(true);
       } catch (error) {
-        console.error(error);
-        toast.error("Failed to fetch repositories");
+        console.error("Error fetching data:", error);
+        toast.error("Failed to fetch repositories or AutoReview status");
       }
     };
 
-    fetchUserData();
+    fetchAllData();
   }, []);
 
   const toggleRepo = async (repoId: number) => {
@@ -268,28 +285,41 @@ export default function Homepage() {
 
   const toggleAutoReview = async (repoId: number) => {
     const userid = userInfo.user.id;
-    const istoggle = true;
+    const isEnabled = repoConfigs[repoId];
 
-    console.log("info are: ", repoId, userid, istoggle);
+    try {
+      if (isEnabled) {
+        // Disable Auto Review
+        const response: any = await axios.delete(
+          "http://localhost:5000/auth/github/delete/autoreview",
+          // @ts-ignore
+          { repo_id: repoId, user_id: userid }
+        );
 
-    const backendreponse = await axios.post("http://localhost:5000/auth/github/store/autoreview", {
-      repo_id: repoId,
-      user_id: userid,
-      autoReview: true
-    }, {
-      headers: {
-        "Content-Type": "application/json"
-      }      
-    });
+        if (response.status === 200) {
+          toast.success("Auto Review disabled");
+          setRepoConfigs((prev) => ({ ...prev, [repoId]: false }));
+        }
+      } else {
+        // Enable Auto Review
+        const response = await axios.post(
+          "http://localhost:5000/auth/github/store/autoreview",
+          {
+            repo_id: repoId,
+            user_id: userid,
+            autoReview: true,
+          }
+        );
 
-    if (backendreponse.status !== 200) {
-      toast.error("try again later");
-      return;
+        if (response.status === 201 || response.status === 200) {
+          toast.success("Auto Review enabled");
+          setRepoConfigs((prev) => ({ ...prev, [repoId]: true }));
+        }
+      }
+    } catch (error) {
+      console.error("Toggle Auto Review Error:", error);
+      toast.error("Failed to toggle Auto Review");
     }
-
-    console.log("backend response is: ", backendreponse);
-    toast.success("auto feature is on....")
-    
   };
 
   const getTopLanguage = (languages: { [key: string]: number }) => {
@@ -381,13 +411,13 @@ export default function Homepage() {
                     <Button
                       variant="outline"
                       className={`cursor-pointer px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-white transition-all duration-200 ${
-                        arToggle
+                        repoConfigs[repo.id]
                           ? "bg-green-600 hover:bg-green-700"
                           : "bg-red-500 hover:bg-red-600"
                       }`}
                       onClick={() => toggleAutoReview(repo.id)}
                     >
-                      {arToggle ? (
+                      {repoConfigs[repo.id] ? (
                         <>
                           <CheckCircle2 className="w-4 h-4 border border-white rounded-full" />
                           <span>On</span>
